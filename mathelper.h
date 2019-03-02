@@ -1,14 +1,25 @@
 #ifndef MATHELPER_H
 #define MATHELPER_H
+/* *******************************************************************
+ * Simple header-only math library for an opengl (es2) app.          *
+ * Uses either full GL or ES2, choosable in compile time(USE_FULL_GL)*
+ *                                                                   *
+ * Created by: prenex                                                *
+ * LICENCE: The UNLICENCE                                            *
+ * ******************************************************************/
 
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#ifdef __APPLE__
+/* Include OpenGL and GLU itself */
+#ifdef USE_FULL_GL
+#ifdef __APPLE__		/* */
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
-#endif
+#else /* !USE_FULL_GL */
+#include <GLES2/gl2.h>  /* use OpenGL ES 2.x */
+#endif /* USE_FULL_GL */
 
 #ifndef HAVE_BUILTIN_SINCOS
 #define sincos _sincos
