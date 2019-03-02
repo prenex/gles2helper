@@ -2,10 +2,10 @@
 #define __GLES_2_HELPER_H
 /* *******************************************************************
  * Simple header-only library for setting up an opengl (es2) window. *
- * Uses either EGL or GLUT, choosable in compile time				 *
- *																	 *
- * Created by: prenex												 *
- * LICENCE: The UNLICENCE											 *
+ * Uses either EGL or GLUT, choosable in compile time                *
+ *                                                                   *
+ * Created by: prenex                                                *
+ * LICENCE: The UNLICENCE                                            *
  * ******************************************************************/
 
 /* TODO list:
