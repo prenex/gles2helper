@@ -13,10 +13,11 @@
 #include <cstring>
 /* Include OpenGL and GLU itself */
 #ifdef USE_FULL_GL
-#ifdef __APPLE__		/* */
+#ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
+#endif
 #else /* !USE_FULL_GL */
 #include <GLES2/gl2.h>  /* use OpenGL ES 2.x */
 #endif /* USE_FULL_GL */
