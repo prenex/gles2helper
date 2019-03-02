@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 /* Include OpenGL and GLU itself */
-#ifdef USE_FULL_GL
+#if USE_FULL_GL
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else

@@ -43,13 +43,14 @@
 /* ******** */
 
 /* Include OpenGL and GLU itself */
-#ifdef USE_FULL_GL
-#ifdef __APPLE__		/* */
+#if USE_FULL_GL
+#ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <Glut/glu.h>
 #else
 #include <GL/gl.h>
 #include <GL/glu.h>
+#endif /* __APPLE__ */
 #else /* !USE_FULL_GL */
 #include <GLES2/gl2.h>	/* use OpenGL ES 2.x */
 #endif /* USE_FULL_GL */
@@ -70,6 +71,11 @@
 #include <GL/glut.h>
 #endif /*__APPLE__ */
 #endif /* GLES2_HELPER_USE_GLUT */
+
+/* Normal includes */
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
 
 /* *********************** */
 /* Keyevent handler values */
@@ -139,8 +145,10 @@
 /**
  * Create an RGB, double-buffered X window.
  * Return the window and context handles.
+ *
+ * @returns Non-zero (for ex. -1) on errors, 0 otherwise
  */
-static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
+static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 				const char *name,
 				int x, int y, int width, int height,
 				Window *winRet,
@@ -182,7 +190,7 @@ static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 	if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs)) {
 		printf("Error: couldn't get an EGL visual config\n");
-		exit(1);
+		return 1;
 	}
 
 	assert(config);
@@ -190,7 +198,7 @@ static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 	if (!eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
 		printf("Error: eglGetConfigAttrib() failed\n");
-		exit(1);
+		return(1);
 	}
 
 	/* The X window visual must match the EGL config */
@@ -198,7 +206,7 @@ static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	visInfo = XGetVisualInfo(x_dpy, VisualIDMask, &visTemplate, &num_visuals);
 	if (!visInfo) {
 		printf("Error: couldn't get X visual\n");
-		exit(1);
+		return 1;
 	}
 
 	/* window attributes */
@@ -234,7 +242,7 @@ static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
 	if (!ctx) {
 		printf("Error: eglCreateContext failed\n");
-		exit(1);
+		return 1;
 	}
 
 #if !USE_FULL_GL
@@ -249,7 +257,7 @@ static void make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	*surfRet = eglCreateWindowSurface(egl_dpy, config, win, NULL);
 	if (!*surfRet) {
 		printf("Error: eglCreateWindowSurface failed\n");
-		exit(1);
+		return 1;
 	}
 
 	/* sanity checks */
@@ -343,7 +351,7 @@ static int event_loop(
 							return ret-1; /* Exit program */
 						}
 						break;
-					else:
+					default:
 						r = XLookupString(&event.xkey, ascii_buffer, sizeof(ascii_buffer),
 									 NULL, NULL);
 						ret = keyevent(ascii_buffer[0], fields);
@@ -400,10 +408,9 @@ int gles2run(
 	EGLSurface egl_surf;
 	EGLContext egl_ctx;
 	EGLDisplay egl_dpy;
-	GLboolean printInfo = GL_FALSE;
 	EGLint egl_major, egl_minor;
 	const char *s;
-	int retvat = 0;
+	int retval = 0;
 
 	x_dpy = XOpenDisplay(dpyName);
 	if (!x_dpy) {
@@ -435,10 +442,13 @@ int gles2run(
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
 	if(printInfo) printf("EGL_CLIENT_APIS = %s\n", s);
 
-	make_x_window(
+	if(!make_x_window(
 			x_dpy, egl_dpy,
 			title, 0, 0, width, height,
-			&win, &egl_ctx, &egl_surf);
+			&win, &egl_ctx, &egl_surf)) {
+		fprintf(stderr, "Failed to make window!\n");
+		return -1;
+	}
 
 	XMapWindow(x_dpy, win);
 	if (!eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx)) {
@@ -488,4 +498,4 @@ int gles2run(
 #endif /* GLES2_HELPER_USE_GLUT */
 
 #endif /* __GLES_2_HELPER_H */
-/* vim: tabstop=4 noexpandtab shiftwidth=4 softtabstop=4: */
+/* vim: set ts=4 sw=4 tw=0 noet : */
