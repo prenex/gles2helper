@@ -315,6 +315,12 @@ static int event_loop(
 			case KeyPress:
 			case KeyRelease:
 			{
+				/* Handle case if they are not interested in keys */
+				if(keyevent == NULL) {
+					break;
+				}
+
+				/* Handle keys */
 				char ascii_buffer[10];
 				int r, code, fields, ret;
 				code = XLookupKeysym(&event.xkey, 0);
