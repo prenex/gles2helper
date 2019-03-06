@@ -501,6 +501,7 @@ int gles2run(
 
 #ifdef GLES2_HELPER_USE_GLUT
 /* TODO: GLUT implementation */
+/* TODO: In case of GLUT, hax this: http://www.dei.isep.ipp.pt/~matos/cg/docs/manual/glutSetKeyRepeat.3GLUT.html*/
 #endif /* GLES2_HELPER_USE_GLUT */
 
 #endif /* __GLES_2_HELPER_H */
