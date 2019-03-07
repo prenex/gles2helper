@@ -60,9 +60,9 @@ public:
 volatile unsigned long long GameTime::start_ms; // Need to be defined!
 
 static GLfloat view_rotx = 0.0, view_roty = 0.0;
-
 static GLint u_matrix = -1;
 static GLint attr_pos = 0, attr_color = 1;
+static bool left, right, up, down; /* Key status */
 
 static void make_z_rot_matrix(GLfloat angle, GLfloat *m) {
 	float c = cos(angle * M_PI / 180.0);
@@ -109,7 +109,24 @@ static void mul_matrix(GLfloat *prod, const GLfloat *a, const GLfloat *b) {
 }
 
 static void update(GameTime gametime) {
-	/* TODO: Turn the triangle according to the currently pressed keys */
+	// Turn the triangle according to the currently pressed keys
+	// TODO: Use gametime to limit the speed!
+	if (left) {
+		printf("LEFT\n");
+		view_roty += 5.0;
+	}
+	if (right) {
+		printf("RIGHT\n");
+		view_roty -= 5.0;
+	}
+	if (up) {
+		printf("UP\n");
+		view_rotx += 5.0;
+	}
+	if (down) {
+		printf("DOWN\n");
+		view_rotx -= 5.0;
+	}
 }
 
 static void draw(GameTime gametime) {
@@ -147,7 +164,7 @@ static void draw(GameTime gametime) {
 }
 
 /** Simple single-threaded main loop */
-static void drawUpdate() {
+static int drawUpdate(int redraw_hint) {
 	unsigned long long now_ms = std::chrono::duration_cast< std::chrono::milliseconds >(
 		std::chrono::system_clock::now().time_since_epoch()).count();
 	static unsigned long long last_ms = -1;
@@ -158,7 +175,10 @@ static void drawUpdate() {
 	GameTime gt(last_ms, now_ms);
 
 	update(gt);
-	draw(gt);
+	//if(redraw_hint) {
+		draw(gt);
+		return true;
+	//} else return false;
 }
 
 /* new window size or exposure */
@@ -257,27 +277,61 @@ static void usage(void)
 }
 
 int keyevent(int code, int fields) {
-	if(fields & KEYEVENT_IS_SPECIAL) {
+	bool isPress = (bool)(fields & KEYEVENT_ONPRESS);
+	bool isRelease = (bool)(fields & KEYEVENT_ONRELEASE);
+	bool isSpecial = (bool)(fields & KEYEVENT_IS_SPECIAL);
+	printf("c:%d s:%d p:%d r:%d\n",
+		code,
+		isSpecial,
+		isPress,
+		isRelease);
+	if(isSpecial) {
 		// Use special (named) key codes
+		// ARROWS
 		if (code == GLES2H_LEFT) {
-			view_roty += 5.0;
+			if(isPress) left = 1;
+			if(isRelease) left = 0;
 		}
 		else if (code == GLES2H_RIGHT) {
-			view_roty -= 5.0;
+			if(isPress) right = 1;
+			if(isRelease) right = 0;
 		}
 		else if (code == GLES2H_UP) {
-			view_rotx += 5.0;
+			if(isPress) up = 1;
+			if(isRelease) up = 0;
 		}
 		else if (code == GLES2H_DOWN) {
-			view_rotx -= 5.0;
+			if(isPress) down = 1;
+			if(isRelease) down = 0;
 		}
+		// Keep the app main loop running!
 		return 0;
 	} else {
 		// Use ascii codes
+		// ESC
 		if(code == 27) {
+			// EXIT on ESC!
 			// App will return (1-1=0)
 			return 1;
 		}
+		// WASD
+		if (code == 'a') {
+			if(isPress) left = 1;
+			if(isRelease) left = 0;
+		}
+		else if (code == 'd') {
+			if(isPress) right = 1;
+			if(isRelease) right = 0;
+		}
+		else if (code == 'w') {
+			if(isPress) up = 1;
+			if(isRelease) up = 0;
+		}
+		else if (code == 's') {
+			if(isPress) down = 1;
+			if(isRelease) down = 0;
+		}
+		return 0;
 	}
 }
 

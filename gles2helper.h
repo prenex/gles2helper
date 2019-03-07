@@ -13,6 +13,7 @@
  * - Mouse events
  * - Different color depths
  * - Fullscreen support
+ * - Internationalized key support and testing
  * - etc.
  */
 
@@ -24,7 +25,7 @@
 /*#define USE_FULL_GL 0/1 */
 /*#define GLES2_HELPER_USE_EGL*/
 /*#define GLES2_HELPER_USE_GLUT*/
-/*#define GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT*/
+/*#define GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION*/ /* Beware with this: broken hackz on many-many machines */
 
 /* EGL is priority when both is defined */
 #ifdef GLES2_HELPER_USE_EGL
@@ -62,6 +63,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include <EGL/egl.h>
 #endif /* GLES2_HELPER_USE_EGL */
 /* GLUT */
@@ -72,6 +74,7 @@
 #include <GL/glut.h>
 #endif /*__APPLE__ */
 #endif /* GLES2_HELPER_USE_GLUT */
+
 
 /* Normal includes */
 #include <stdio.h>
@@ -189,8 +192,8 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	scrnum = DefaultScreen( x_dpy );
 	root = RootWindow( x_dpy, scrnum );
 
-	if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs)) {
-		printf("Error: couldn't get an EGL visual config\n");
+	if (!eglChooseConfig(egl_dpy, attribs, &config, 1, &num_configs)) {
+		fprintf(stderr, "Error: couldn't get an EGL visual config\n");
 		return 1;
 	}
 
@@ -198,7 +201,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	assert(num_configs > 0);
 
 	if (!eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
-		printf("Error: eglGetConfigAttrib() failed\n");
+		fprintf(stderr, "Error: eglGetConfigAttrib() failed\n");
 		return(1);
 	}
 
@@ -206,7 +209,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	visTemplate.visualid = vid;
 	visInfo = XGetVisualInfo(x_dpy, VisualIDMask, &visTemplate, &num_visuals);
 	if (!visInfo) {
-		printf("Error: couldn't get X visual\n");
+		fprintf(stderr, "Error: couldn't get X visual\n");
 		return 1;
 	}
 
@@ -242,7 +245,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 	ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
 	if (!ctx) {
-		printf("Error: eglCreateContext failed\n");
+		fprintf(stderr, "Error: eglCreateContext failed\n");
 		return 1;
 	}
 
@@ -257,7 +260,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 	*surfRet = eglCreateWindowSurface(egl_dpy, config, win, NULL);
 	if (!*surfRet) {
-		printf("Error: eglCreateWindowSurface failed\n");
+		fprintf(stderr, "Error: eglCreateWindowSurface failed\n");
 		return 1;
 	}
 
@@ -281,7 +284,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 /**
  * The EGL event loop handler
  *
- * @param drawUpdate User-specified drawUpdate function
+ * @param drawUpdate User-specified drawUpdate function, its parameter is true when redraw_hint is hinted!
  * @param reshape User-specified reshape-resize(width, height) function
  * @param idle User-specified idle function
  * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* defines for bit fields.
@@ -292,123 +295,135 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
  *
  * returns Only returns when the event loop is ending. That case it returns the proposed app return value.
  */
+// Rem.: Some ideas here are mine completely, some are from godot engine
+//       See https://github.com/godotengine/godot/blob/master/platform/x11/os_x11.cpp
 static int event_loop(
-		void (*drawUpdate)(), /* User-specified drawUpdate function */
+		int (*drawUpdate)(int), /* User-specified drawUpdate function */
 		void (*reshape)(int, int), /* The reshape-resize function */
 		void (*idle)(), /* User-specified idle function */
 		int (*keyevent)(int, int), /* User-specified key handler(code, fields) */
 		Display *dpy, Window win, EGLDisplay egl_dpy,
 		EGLSurface egl_surf) {
 	while (1) {
-		int redraw = 0;
-		XEvent event;
+		/** To avoid blocking, only see if there is pending events */
+		int redraw_hint = 0;
+		if (XPending(dpy) > 0) {
+			XEvent event;
 
-		XNextEvent(dpy, &event);
+			XNextEvent(dpy, &event);
 
-		switch (event.type) {
-			case Expose:
-			 redraw = 1;
-			 break;
-			case ConfigureNotify:
-			 /* Call user-defined reshape */
-			 reshape(event.xconfigure.width, event.xconfigure.height);
-			 break;
-			case KeyRelease:
-			/*
-			 * When repeat is on, X can send a release immediately
-			 * after the keypress when the repeat time is reached.
-			 * This makes it impossible for out clients to tell 
-			 * when a real, physical button release was, because 
-			 * there are PRE-RE, PRE-RE pairs from that on. With 
-			 * the following "trick" or "hackz", we can remove the 
-			 * releases coming only from the repeat, but we only
-			 * need to do so except if we are using the function
-			 * XkbSetDetectableAutorepeat() specifically for this.
-			 *
-			 * See: https://stackoverflow.com/questions/2100654/ignore-auto-repeat-in-x11-applications
-			 */
-#ifndef GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT
-			if (event.type == KeyRelease && XEventsQueued(dpy, QueuedAfterReading)) {
-				XEvent nev;
+			switch (event.type) {
+				case Expose:
+				 redraw_hint = 1;
+				 break;
+				case ConfigureNotify:
+				 /* Call user-defined reshape */
+				 reshape(event.xconfigure.width, event.xconfigure.height);
+				 break;
+				case KeyRelease:
+				/* We just fall through to KeyPress except if we do HACKZ... */
+#ifdef GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION
+				/*
+				 * When repeat is on, X can send a release immediately
+				 * after the keypress when the repeat time is reached.
+				 * This makes it impossible for out clients to tell 
+				 * when a real, physical button release was, because 
+				 * there are PRE-RE, PRE-RE pairs from that on. With 
+				 * the following "trick" or "hackz", we can remove the 
+				 * releases coming only from the repeat, but we only
+				 * need to do so except if we are using the function
+				 * XkbSetDetectableAutoRepeat() specifically for this.
+				 *
+				 * This seems to be broken on many-many machines, so
+				 * we only do this instead of XkbSetDetectableAutoRepeat
+				 * when the user especially asks for this solution!
+				 *
+				 * See: https://stackoverflow.com/questions/2100654/ignore-auto-repeat-in-x11-applications
+				 */
+				if(keyevent != NULL) {
+					if(event.type == KeyRelease && XEventsQueued(dpy, QueuedAfterReading)) {
+						XEvent nev;
 
-				XPeekEvent(dpy, &nev);
+						XPeekEvent(dpy, &nev);
 
-				if (nev.type == KeyPress && nev.xkey.time == event.xkey.time &&
-					nev.xkey.keycode == event.xkey.keycode) {
-					/* Key wasn’t actually released */
-					/* Ignore it with a break */
+						if (nev.type == KeyPress && nev.xkey.time == event.xkey.time &&
+							nev.xkey.keycode == event.xkey.keycode) {
+							/* Key wasn’t actually released */
+							/* Ignore it with a break */
+							break;
+						}
+					}
+				}
+#endif /* GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION */
+				case KeyPress:
+				{
+					/* Handle case if they are not interested in keys */
+					if(keyevent == NULL) {
+						break;
+					}
+
+					/* Handle keys */
+					char ascii_buffer[10];
+					int r, code, fields, ret;
+					code = XLookupKeysym(&event.xkey, 0);
+					if(event.type == KeyPress) {
+						fields = KEYEVENT_ONPRESS;
+					} else {
+						fields = KEYEVENT_ONRELEASE;
+					}
+					/* FIXME: either optimize this or at least use X-macros to remove duplication of code listing! */
+					switch(code) {
+						case GLES2H_F2:
+						case GLES2H_F3:
+						case GLES2H_F4:
+						case GLES2H_F5:
+						case GLES2H_F6:
+						case GLES2H_F7:
+						case GLES2H_F8:
+						case GLES2H_F9:
+						case GLES2H_F10:
+						case GLES2H_F11:
+						case GLES2H_F12:
+						case GLES2H_LEFT:
+						case GLES2H_UP:
+						case GLES2H_RIGHT:
+						case GLES2H_DOWN:
+						case GLES2H_PAGE_UP:
+						case GLES2H_PAGE_DOWN:
+						case GLES2H_HOME:
+						case GLES2H_END:
+						case GLES2H_INSERT:
+							fields |= KEYEVENT_IS_SPECIAL;
+							ret = keyevent(code, fields);
+							if(ret) {
+								return ret-1; /* Exit program */
+							}
+							break;
+						default:
+							r = XLookupString(&event.xkey, ascii_buffer, sizeof(ascii_buffer),
+										 NULL, NULL);
+							ret = keyevent(ascii_buffer[0], fields);
+							if(ret) {
+								return ret-1; /* Exit program */
+							}
+							break;
+					}	
+
+					/* Expect to redraw_hint when there is some keyboard even! */
+					redraw_hint = 1;
 					break;
 				}
-			}
-#endif /* GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT */
-			case KeyPress:
-			{
-				/* Handle case if they are not interested in keys */
-				if(keyevent == NULL) {
-					break;
+			default:
+				if(idle != NULL) {
+					idle(); /* User-defined idle fun or NO-OP */
 				}
-
-				/* Handle keys */
-				char ascii_buffer[10];
-				int r, code, fields, ret;
-				code = XLookupKeysym(&event.xkey, 0);
-				if(event.type == KeyPress) {
-					fields = KEYEVENT_ONPRESS;
-				} else {
-					fields = KEYEVENT_ONRELEASE;
-				}
-				/* FIXME: either optimize this or at least use X-macros to remove duplication of code listing! */
-				switch(code) {
-					case GLES2H_F2:
-					case GLES2H_F3:
-					case GLES2H_F4:
-					case GLES2H_F5:
-					case GLES2H_F6:
-					case GLES2H_F7:
-					case GLES2H_F8:
-					case GLES2H_F9:
-					case GLES2H_F10:
-					case GLES2H_F11:
-					case GLES2H_F12:
-					case GLES2H_LEFT:
-					case GLES2H_UP:
-					case GLES2H_RIGHT:
-					case GLES2H_DOWN:
-					case GLES2H_PAGE_UP:
-					case GLES2H_PAGE_DOWN:
-					case GLES2H_HOME:
-					case GLES2H_END:
-					case GLES2H_INSERT:
-						fields |= KEYEVENT_IS_SPECIAL;
-						ret = keyevent(code, fields);
-						if(ret) {
-							return ret-1; /* Exit program */
-						}
-						break;
-					default:
-						r = XLookupString(&event.xkey, ascii_buffer, sizeof(ascii_buffer),
-									 NULL, NULL);
-						ret = keyevent(ascii_buffer[0], fields);
-						if(ret) {
-							return ret-1; /* Exit program */
-						}
-						break;
-				}	
-
-				/* Expect to redraw when there is some keyboard even! */
-				redraw = 1;
 				break;
 			}
-		default:
-			if(idle != NULL) {
-				idle(); /* User-defined idle fun or NO-OP */
-			}
-			break;
 		}
 
+		int redraw = drawUpdate(redraw_hint); /* User-defined drawUpdate func */
 		if (redraw) {
-		 drawUpdate(); /* User-defined drawUpdate func */
-		 eglSwapBuffers(egl_dpy, egl_surf); /* swap */
+			eglSwapBuffers(egl_dpy, egl_surf); /* swap */
 		}
 	}
 }
@@ -424,7 +439,7 @@ static int event_loop(
  *                   this both for games and for normal applications!
  *
  * @param init User-specified init function. Will be called before any drawUpdate() calls! Cannot be NULL!
- * @param drawUpdate User-specified drawUpdate function. Cannot be NULL!
+ * @param drawUpdate User-specified drawUpdate function, its parameter is true when redraw_hint is hinted!
  * @param reshape User-specified reshape-resize(width, height) function. Cannot be NULL!
  * @param idle User-specified idle function. Can be NULL!
  * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* #defines for bit fields. Can be NULL!
@@ -438,7 +453,7 @@ static int event_loop(
  */
 int gles2run(
 		void (*init)(), /* User-specified init function */
-		void (*drawUpdate)(), /* User-specified drawUpdate function */
+		int (*drawUpdate)(int), /* User-specified drawUpdate function */
 		void (*reshape)(int, int), /* The reshape-resize function */
 		void (*idle)(), /* User-specified idle function */
 		int (*keyevent)(int, int), /* User-specified key handler(code, fields) */
@@ -460,12 +475,12 @@ int gles2run(
 		return -1;
 	}
 
-#ifdef GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT
-	XkbSetDetectableAutorepeat(x_dpy, true, &selectable_repeat_success);
+#ifndef GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION
+	XkbSetDetectableAutoRepeat(x_dpy, true, &selectable_repeat_success);
 	if(!selectable_repeat_success) {
-		fprintf(stderr, "Error: XkbSetDetectableAutorepeat cannot set true! Rebuild without GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT!");
+		fprintf(stderr, "Error: XkbSetDetectableAutoRepeat cannot set true! Try rebuilding with HACKZ!\n");
 	}
-#endif /* GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT */
+#endif /* GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION */
 
 	egl_dpy = eglGetDisplay(x_dpy);
 	if (!egl_dpy) {
@@ -497,6 +512,19 @@ int gles2run(
 		fprintf(stderr, "Failed to make window!\n");
 		return -1;
 	}
+
+	/*
+	 * THIS IS NECESSARY OTHERWISE WE MIGHT NOT GET SOME EVENTS!
+	 * We want the keyboard and mouse events and the exposure (resize) and configureNotify
+	 *
+	 * See: https://tronche.com/gui/x/xlib/events/processing-overview.html
+	 *      https://tronche.com/gui/x/xlib-tutorial/2nd-program-anatomy.html
+	 *      https://tronche.com/gui/x/xlib/events/keyboard-pointer/keyboard-pointer.html
+	 */
+	XSelectInput(x_dpy, win,
+			KeyPressMask | KeyReleaseMask | /* Key */
+			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | /* Mouse */
+			ExposureMask | StructureNotifyMask); /* Redraw and resize */
 
 	XMapWindow(x_dpy, win);
 	if (!eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx)) {
