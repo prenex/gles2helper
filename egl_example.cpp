@@ -6,8 +6,10 @@
  * Build:
  * g++ --std=c++11 egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11
  **************************************************************************/
+/*
 #define USE_FULL_GL 1
 #define GLES2_HELPER_USE_GLUT // Use glut (USE_FULL_GL is neede for this)
+*/
 
 #include "gles2helper.h"
 /* Already provided via gles2helper.h (or gl.h or the apple one etc. etc.)

@@ -46,10 +46,12 @@
 
 #if USE_FULL_GL
 #ifdef __APPLE__
+#include <OpenGL/glew.h>
 #include <OpenGL/gl.h>
 #include <Glut/glu.h>
 #else
 #include <GL/glew.h>
+#include <GL/gl.h>
 #include <GL/glu.h>
 #endif /* __APPLE__ */
 #else /* !USE_FULL_GL */
@@ -68,8 +70,10 @@
 /* GLUT */
 #ifdef GLES2_HELPER_USE_GLUT
 #ifdef __APPLE__
+#include <OpenGL/glew.h>
 #include <Glut/glut.h>
 #else
+#include <GL/glew.h>
 #include <GL/glut.h>
 #endif /*__APPLE__ */
 #endif /* GLES2_HELPER_USE_GLUT */
