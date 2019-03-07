@@ -281,7 +281,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 /**
  * The EGL event loop handler
  *
- * @param draw User-specified draw function
+ * @param drawUpdate User-specified drawUpdate function
  * @param reshape User-specified reshape-resize(width, height) function
  * @param idle User-specified idle function
  * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* defines for bit fields.
@@ -293,7 +293,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
  * returns Only returns when the event loop is ending. That case it returns the proposed app return value.
  */
 static int event_loop(
-		void (*draw)(), /* User-specified draw function */
+		void (*drawUpdate)(), /* User-specified drawUpdate function */
 		void (*reshape)(int, int), /* The reshape-resize function */
 		void (*idle)(), /* User-specified idle function */
 		int (*keyevent)(int, int), /* User-specified key handler(code, fields) */
@@ -407,7 +407,7 @@ static int event_loop(
 		}
 
 		if (redraw) {
-		 draw(); /* User-defined draw func */
+		 drawUpdate(); /* User-defined drawUpdate func */
 		 eglSwapBuffers(egl_dpy, egl_surf); /* swap */
 		}
 	}
@@ -423,8 +423,8 @@ static int event_loop(
  *                   only a single keyrelease. You can create your own logic using 
  *                   this both for games and for normal applications!
  *
- * @param init User-specified init function. Will be called before any draw() calls! Cannot be NULL!
- * @param draw User-specified draw function. Cannot be NULL!
+ * @param init User-specified init function. Will be called before any drawUpdate() calls! Cannot be NULL!
+ * @param drawUpdate User-specified drawUpdate function. Cannot be NULL!
  * @param reshape User-specified reshape-resize(width, height) function. Cannot be NULL!
  * @param idle User-specified idle function. Can be NULL!
  * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* #defines for bit fields. Can be NULL!
@@ -438,7 +438,7 @@ static int event_loop(
  */
 int gles2run(
 		void (*init)(), /* User-specified init function */
-		void (*draw)(), /* User-specified draw function */
+		void (*drawUpdate)(), /* User-specified drawUpdate function */
 		void (*reshape)(int, int), /* The reshape-resize function */
 		void (*idle)(), /* User-specified idle function */
 		int (*keyevent)(int, int), /* User-specified key handler(code, fields) */
@@ -522,7 +522,7 @@ int gles2run(
 
 	/* Exits on keyboard or other event handler callbacks */
 	/* Otherwise loops "forever" basically */
-	retval = event_loop(draw, reshape, idle, keyevent, x_dpy, win, egl_dpy, egl_surf);
+	retval = event_loop(drawUpdate, reshape, idle, keyevent, x_dpy, win, egl_dpy, egl_surf);
 
 	/* Cleanup*/
 	eglDestroyContext(egl_dpy, egl_ctx);

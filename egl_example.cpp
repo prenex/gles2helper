@@ -4,7 +4,7 @@
  * Draw a triangle with X/EGL and OpenGL ES 2.x
  *
  * Build:
- * g++ egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11
+ * g++ --std=c++11 egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11
  **************************************************************************/
 #define USE_FULL_GL 0
 
@@ -14,22 +14,55 @@
 #include <EGL/egl.h>
 */
 
-#include <assert.h>
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <chrono>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
 #define FLOAT_TO_FIXED(X)	((X) * 65535.0)
 
+class GameTime {
+private:
+	static volatile unsigned long long start_ms;
+	unsigned long long last_ms;
+	unsigned long long now_ms;
+public:
+	/** Construct a GameTime object with the difference values */
+	GameTime(unsigned long long _last_ms, unsigned long long _now_ms) {
+		last_ms = _last_ms;
+		now_ms = _now_ms;
+	}
+
+	/** Gets milliseconds relative to the last frame. */
+	const inline unsigned long long getFrameDiffMs() const {
+		return now_ms - last_ms;
+	}
+
+	/** Gets milliseconds since the game has started. ONLY WORKS AFTER setStartMs is properly called at app start! */
+	const inline unsigned long long getMs() const {
+		return now_ms - start_ms;
+	}
+
+	/** Saves the start time - needed for any later getMs() calls */
+	static inline void setStartMs(unsigned long long ms) {
+		start_ms = ms;
+	}
+
+	static inline unsigned long long getStartMs() {
+		return start_ms;
+	}
+};
+volatile unsigned long long GameTime::start_ms; // Need to be defined!
+
 static GLfloat view_rotx = 0.0, view_roty = 0.0;
 
 static GLint u_matrix = -1;
 static GLint attr_pos = 0, attr_color = 1;
-
 
 static void make_z_rot_matrix(GLfloat angle, GLfloat *m) {
 	float c = cos(angle * M_PI / 180.0);
@@ -75,8 +108,11 @@ static void mul_matrix(GLfloat *prod, const GLfloat *a, const GLfloat *b) {
 #undef PROD
 }
 
+static void update(GameTime gametime) {
+	/* TODO: Turn the triangle according to the currently pressed keys */
+}
 
-static void draw(void) {
+static void draw(GameTime gametime) {
 	static const GLfloat verts[3][2] = {
 		{ -1, -1 },
 		{  1, -1 },
@@ -108,6 +144,21 @@ static void draw(void) {
 		glDisableVertexAttribArray(attr_pos);
 		glDisableVertexAttribArray(attr_color);
 	}
+}
+
+/** Simple single-threaded main loop */
+static void drawUpdate() {
+	unsigned long long now_ms = std::chrono::duration_cast< std::chrono::milliseconds >(
+		std::chrono::system_clock::now().time_since_epoch()).count();
+	static unsigned long long last_ms = -1;
+	if(last_ms == (unsigned long long) -1) {
+		last_ms = GameTime::getStartMs();
+	}
+
+	GameTime gt(last_ms, now_ms);
+
+	update(gt);
+	draw(gt);
 }
 
 /* new window size or exposure */
@@ -189,8 +240,13 @@ static void create_shaders(void) {
 
 
 static void init() {
+	/* Init shaders */
 	glClearColor(0.4, 0.4, 0.4, 0.0);
 	create_shaders();
+
+	/* Save start time and last time so that we provide differentials */
+	GameTime::setStartMs(std::chrono::duration_cast< std::chrono::milliseconds >(
+		std::chrono::system_clock::now().time_since_epoch()).count());
 }
 
 static void usage(void)
@@ -246,7 +302,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* TODO: handle keyevents or idle */
-	retval = gles2run(init,draw, reshape, NULL, keyevent, "GLES2-helper test code", 300, 300, GL_TRUE, NULL);
+	retval = gles2run(init, drawUpdate, reshape, NULL, keyevent, "GLES2-helper test code", 300, 300, GL_TRUE, NULL);
 
 	return retval;
 }
