@@ -6,10 +6,11 @@
  * Build:
  * g++ --std=c++11 egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11
  **************************************************************************/
-#define USE_FULL_GL 0
+#define USE_FULL_GL 1
+#define GLES2_HELPER_USE_GLUT // Use glut (USE_FULL_GL is neede for this)
 
 #include "gles2helper.h"
-/* Already provided via gles2helper.h
+/* Already provided via gles2helper.h (or gl.h or the apple one etc. etc.)
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 */
@@ -111,6 +112,7 @@ static void mul_matrix(GLfloat *prod, const GLfloat *a, const GLfloat *b) {
 static void update(GameTime gametime) {
 	// Turn the triangle according to the currently pressed keys
 	// TODO: Use gametime to limit the speed!
+	
 	if (left) {
 		printf("LEFT\n");
 		view_roty += 5.0;
@@ -188,7 +190,9 @@ static void reshape(int width, int height) {
 
 static void create_shaders(void) {
 	static const char *fragShaderText =
+		"#ifdef GL_ES\n"
 		"precision mediump float;\n"
+		"#endif\n"
 		"varying vec4 v_color;\n"
 		"void main() {\n"
 		"	gl_FragColor = v_color;\n"
@@ -203,6 +207,7 @@ static void create_shaders(void) {
 		"	v_color = color;\n"
 		"}\n";
 
+	char msg[512];
 	GLuint fragShader, vertShader, program;
 	GLint stat;
 
@@ -211,7 +216,9 @@ static void create_shaders(void) {
 	glCompileShader(fragShader);
 	glGetShaderiv(fragShader, GL_COMPILE_STATUS, &stat);
 	if (!stat) {
-		printf("Error: fragment shader did not compile!\n");
+		fprintf(stderr, "Error: fragment shader did not compile!\n");
+		glGetShaderInfoLog(fragShader, sizeof msg, NULL, msg);
+		fprintf(stderr, "fragment shader info: %s\n", msg);
 		exit(1);
 	}
 
@@ -220,7 +227,9 @@ static void create_shaders(void) {
 	glCompileShader(vertShader);
 	glGetShaderiv(vertShader, GL_COMPILE_STATUS, &stat);
 	if (!stat) {
-		printf("Error: vertex shader did not compile!\n");
+		fprintf(stderr, "Error: vertex shader did not compile!\n");
+		glGetShaderInfoLog(vertShader, sizeof msg, NULL, msg);
+		fprintf(stderr, "fragment shader info: %s\n", msg);
 		exit(1);
 	}
 
@@ -234,9 +243,10 @@ static void create_shaders(void) {
 		char log[1000];
 		GLsizei len;
 		glGetProgramInfoLog(program, 1000, &len, log);
-		printf("Error: linking:\n%s\n", log);
+		fprintf(stderr, "Error: linking:\n%s\n", log);
 		exit(1);
 	}
+	
 
 	glUseProgram(program);
 

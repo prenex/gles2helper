@@ -44,13 +44,12 @@
 /* INCLUDES */
 /* ******** */
 
-/* Include OpenGL and GLU itself */
 #if USE_FULL_GL
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <Glut/glu.h>
 #else
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 #endif /* __APPLE__ */
 #else /* !USE_FULL_GL */
@@ -80,6 +79,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* *********************** */
 /* Keyevent handler values */
@@ -295,8 +295,8 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
  *
  * returns Only returns when the event loop is ending. That case it returns the proposed app return value.
  */
-// Rem.: Some ideas here are mine completely, some are from godot engine
-//       See https://github.com/godotengine/godot/blob/master/platform/x11/os_x11.cpp
+/* Rem.: Some ideas here are mine completely, some are from godot engine
+       See https://github.com/godotengine/godot/blob/master/platform/x11/os_x11.cpp*/
 static int event_loop(
 		int (*drawUpdate)(int), /* User-specified drawUpdate function */
 		void (*reshape)(int, int), /* The reshape-resize function */
@@ -574,6 +574,132 @@ int gles2run(
 /* TODO: In case of GLUT, hax this: http://www.dei.isep.ipp.pt/~matos/cg/docs/manual/glutSetKeyRepeat.3GLUT.html*/
 /* We need both keyboardFunc(..) and keyboardUpFunc(..) alongside glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); */
 /* See: https://stackoverflow.com/questions/39561997/glut-holding-a-key-down */
+
+static int (*drawUpdateFun)(int);
+static int (*keyeventFun)(int, int);
+
+static void glut_draw() {
+	/* Call the users drawUpdate function */
+	int redraw = drawUpdateFun(true);
+
+	/* Render the scene if asked to */
+	if(redraw) {
+		glutSwapBuffers();
+	}
+}
+
+/* SPECIAL KEY PRESSES */
+/* ................... */
+
+/* Rem.: we do not need to change or map the code as it will be properly #defined compile time! */
+static void glut_special(int code, int mouse_x_unused, int mouse_y_unused) {
+	int fields = KEYEVENT_IS_SPECIAL | KEYEVENT_ONPRESS;
+	/* Call user code twice*/
+	int ret = keyeventFun(code, fields);
+	/* Handling for app exiting */
+	if(ret) {
+		exit(ret - 1);
+	}
+}
+/* Rem.: we do not need to change or map the code as it will be properly #defined compile time! */
+static void glut_special_up(int code, int mouse_x_unused, int mouse_y_unused) {
+	int fields = KEYEVENT_IS_SPECIAL | KEYEVENT_ONRELEASE;
+	/* Call user code twice*/
+	int ret = keyeventFun(code, fields);
+	/* Handling for app exiting */
+	if(ret) {
+		exit(ret - 1);
+	}
+}
+
+/* NORMAL KEY PRESSES */
+/* .................. */
+
+static void glut_key(unsigned char code, int mouse_x_unused, int mouse_y_unused) {
+	int fields = KEYEVENT_ONPRESS;
+	/* Call user code */
+	int ret = keyeventFun(code, fields);
+	/* Handling for app exiting */
+	if(ret) {
+		exit(ret - 1);
+	}
+}
+
+static void glut_keyup(unsigned char code, int mouse_x_unused, int mouse_y_unused) {
+	int fields = KEYEVENT_ONRELEASE;
+	/* Call user code */
+	int ret = keyeventFun(code, fields);
+	/* Handling for app exiting */
+	if(ret) {
+		exit(ret - 1);
+	}
+}
+
+/** ...Hackz you do not wanna know... */
+#define ARGV_HACKZ_LEN (10+1)
+static char ARGV_HACKZ[ARGV_HACKZ_LEN];
+
+/**
+ * Initializes and runs an OpenGL (ES2) window with the given parameters.
+ * This creates the event loops calling your specified callbacks.
+ *
+ * Remark(keyevent): The fields parameter tells you if the key is special or ascii,
+ *                   also tells if this is keypress or keyrelease. Multiple keydowns
+ *                   might be sent before a keyrelease, but always in order and with 
+ *                   only a single keyrelease. You can create your own logic using 
+ *                   this both for games and for normal applications!
+ *
+ * @param init User-specified init function. Will be called before any drawUpdate() calls! Cannot be NULL!
+ * @param drawUpdate User-specified drawUpdate function, its parameter is true when redraw_hint is hinted!
+ * @param reshape User-specified reshape-resize(width, height) function. Cannot be NULL!
+ * @param idle User-specified idle function. Can be NULL!
+ * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* #defines for bit fields. Can be NULL!
+ * @param title The window title
+ * @param width The width
+ * @param height The height
+ * @param printInfo When non-zero print more debug information to console.
+ * @param dpyName In case it it not NULL, the DISPLAY variable value to use (other monitors)
+ *
+ * @return The proposed return value of the application where -1 indicates setup issues, 0 success and other values some later errors.
+ */
+int gles2run(
+		void (*init)(), /* User-specified init function */
+		int (*drawUpdate)(int), /* User-specified drawUpdate function */
+		void (*reshape)(int, int), /* The reshape-resize function */
+		void (*idle)(), /* User-specified idle function */
+		int (*keyevent)(int, int), /* User-specified key handler(code, fields) */
+		const char *title, int width, int height, GLboolean printInfo, char *dpyName) {
+
+	strncpy(ARGV_HACKZ, "GLUT HACKZ", ARGV_HACKZ_LEN);
+	char* hackz = ARGV_HACKZ;
+	int hackzc = 1;
+	glutInit(&hackzc, &hackz); /* Hope for this to work... argc = 0; argv = NULL */
+	glutInitWindowSize(width, height);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	glutCreateWindow(title);
+	GLenum err = glewInit();
+	if (GLEW_OK != err)
+	{
+		/* Problem: glewInit failed, something is seriously wrong. */
+		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+	}
+	glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); /* Keys are much better off this way */
+
+	/* Set up glut callback functions */
+	glutIdleFunc(idle); /* This is the same as ours! */
+	glutReshapeFunc(reshape); /* This is the same as ours! */
+	drawUpdateFun = drawUpdate; /* Must save this to be visible from callbacks */
+	glutDisplayFunc(glut_draw); /* CUSTOM */
+	keyeventFun = keyevent; /* Must save this to be visible from callbacks */
+	glutSpecialFunc(glut_special); /* CUSTOM */
+	glutSpecialUpFunc(glut_special_up); /* CUSTOM */
+	glutKeyboardFunc(glut_key); /* CUSTOM */
+	glutKeyboardUpFunc(glut_keyup); /* CUSTOM */
+
+	/* Let glut start its own main loop */
+	init();
+	glutMainLoop();
+}
 #endif /* GLES2_HELPER_USE_GLUT */
 
 #endif /* __GLES_2_HELPER_H */
