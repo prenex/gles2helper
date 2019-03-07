@@ -9,10 +9,9 @@
  * ******************************************************************/
 
 /* TODO list:
- * - GLUT (there is no GLUT implementation at all now!)
  * - Mouse events
- * - Different color depths
  * - Fullscreen support
+ * - Different color depths
  * - Internationalized key support and testing
  * - etc.
  */
