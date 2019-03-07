@@ -22,8 +22,9 @@
 
 /* Possible modes */
 /*#define USE_FULL_GL 0/1 */
-/*#define GLES2_HELPER_USE_EGL 1*/
-/*#define GLES2_HELPER_USE_GLUT 1*/
+/*#define GLES2_HELPER_USE_EGL*/
+/*#define GLES2_HELPER_USE_GLUT*/
+/*#define GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT*/
 
 /* EGL is priority when both is defined */
 #ifdef GLES2_HELPER_USE_EGL
@@ -312,8 +313,35 @@ static int event_loop(
 			 /* Call user-defined reshape */
 			 reshape(event.xconfigure.width, event.xconfigure.height);
 			 break;
-			case KeyPress:
 			case KeyRelease:
+			/*
+			 * When repeat is on, X can send a release immediately
+			 * after the keypress when the repeat time is reached.
+			 * This makes it impossible for out clients to tell 
+			 * when a real, physical button release was, because 
+			 * there are PRE-RE, PRE-RE pairs from that on. With 
+			 * the following "trick" or "hackz", we can remove the 
+			 * releases coming only from the repeat, but we only
+			 * need to do so except if we are using the function
+			 * XkbSetDetectableAutorepeat() specifically for this.
+			 *
+			 * See: https://stackoverflow.com/questions/2100654/ignore-auto-repeat-in-x11-applications
+			 */
+#ifndef GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT
+			if (event.type == KeyRelease && XEventsQueued(dpy, QueuedAfterReading)) {
+				XEvent nev;
+
+				XPeekEvent(dpy, &nev);
+
+				if (nev.type == KeyPress && nev.xkey.time == event.xkey.time &&
+					nev.xkey.keycode == event.xkey.keycode) {
+					/* Key wasn’t actually released */
+					/* Ignore it with a break */
+					break;
+				}
+			}
+#endif /* GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT */
+			case KeyPress:
 			{
 				/* Handle case if they are not interested in keys */
 				if(keyevent == NULL) {
@@ -389,11 +417,17 @@ static int event_loop(
  * Initializes and runs an OpenGL (ES2) window with the given parameters.
  * This creates the event loops calling your specified callbacks.
  *
+ * Remark(keyevent): The fields parameter tells you if the key is special or ascii,
+ *                   also tells if this is keypress or keyrelease. Multiple keydowns
+ *                   might be sent before a keyrelease, but always in order and with 
+ *                   only a single keyrelease. You can create your own logic using 
+ *                   this both for games and for normal applications!
+ *
  * @param init User-specified init function. Will be called before any draw() calls! Cannot be NULL!
  * @param draw User-specified draw function. Cannot be NULL!
  * @param reshape User-specified reshape-resize(width, height) function. Cannot be NULL!
  * @param idle User-specified idle function. Can be NULL!
- * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* defines for bit fields. Can be NULL!
+ * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* #defines for bit fields. Can be NULL!
  * @param title The window title
  * @param width The width
  * @param height The height
@@ -416,6 +450,7 @@ int gles2run(
 	EGLDisplay egl_dpy;
 	EGLint egl_major, egl_minor;
 	const char *s;
+	Bool selectable_repeat_success = 0;
 	int retval = 0;
 
 	x_dpy = XOpenDisplay(dpyName);
@@ -424,6 +459,13 @@ int gles2run(
 		 dpyName ? dpyName : getenv("DISPLAY"));
 		return -1;
 	}
+
+#ifdef GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT
+	XkbSetDetectableAutorepeat(x_dpy, true, &selectable_repeat_success);
+	if(!selectable_repeat_success) {
+		fprintf(stderr, "Error: XkbSetDetectableAutorepeat cannot set true! Rebuild without GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT!");
+	}
+#endif /* GLES2_H_USE_XKB_SET_DETECTABLE_AUTOREPEAT */
 
 	egl_dpy = eglGetDisplay(x_dpy);
 	if (!egl_dpy) {
@@ -450,7 +492,7 @@ int gles2run(
 
 	if(!make_x_window(
 			x_dpy, egl_dpy,
-			title, 0, 0, width, height,
+			(title != NULL) ? title : "gles2run", 0, 0, width, height,
 			&win, &egl_ctx, &egl_surf)) {
 		fprintf(stderr, "Failed to make window!\n");
 		return -1;
@@ -502,6 +544,8 @@ int gles2run(
 #ifdef GLES2_HELPER_USE_GLUT
 /* TODO: GLUT implementation */
 /* TODO: In case of GLUT, hax this: http://www.dei.isep.ipp.pt/~matos/cg/docs/manual/glutSetKeyRepeat.3GLUT.html*/
+/* We need both keyboardFunc(..) and keyboardUpFunc(..) alongside glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); */
+/* See: https://stackoverflow.com/questions/39561997/glut-holding-a-key-down */
 #endif /* GLES2_HELPER_USE_GLUT */
 
 #endif /* __GLES_2_HELPER_H */
