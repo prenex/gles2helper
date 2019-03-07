@@ -663,7 +663,6 @@ static void glut_keyup(unsigned char code, int mouse_x_unused, int mouse_y_unuse
 }
 
 /* IDLE FUN */
-
 static void glut_idle() {
 	post_redisplay(0);
 	if(idleFun != NULL) {
