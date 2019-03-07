@@ -577,15 +577,34 @@ int gles2run(
 
 static int (*drawUpdateFun)(int);
 static int (*keyeventFun)(int, int);
+static void (*idleFun)();
+static int isRedis = 0;
 
+/**
+ * This is tricky because we change it to correspond our system!
+ *
+ * Called when the window was partially updated to we need to redraw it,
+ * but also called when we have called out "post_redisplay" function!
+ *
+ * The latter we call and hint to the user code if the screen needs to
+ * be recalculated - however they can also update it anytime too and 
+ * just ignore that hint. To never duplicate a draw call, we use the 
+ * !isRedis because in that case we might have needed only a buffer swap!
+ */
 static void glut_draw() {
-	/* Call the users drawUpdate function */
-	int redraw = drawUpdateFun(true);
-
-	/* Render the scene if asked to */
-	if(redraw) {
-		glutSwapBuffers();
+	int redraw = 1;
+	if(!isRedis) {
+		redraw = drawUpdateFun(1);
+	} else {
+		isRedis = 0;
 	}
+	glutSwapBuffers();
+}
+
+/** Calls the user code's update and draw calls with given hint and calls glutPostRedisplay. */
+static void post_redisplay(int hint) {
+	int redraw = drawUpdateFun(hint);
+	if(redraw) glutPostRedisplay();
 }
 
 /* SPECIAL KEY PRESSES */
@@ -600,6 +619,8 @@ static void glut_special(int code, int mouse_x_unused, int mouse_y_unused) {
 	if(ret) {
 		exit(ret - 1);
 	}
+
+	post_redisplay(1);
 }
 /* Rem.: we do not need to change or map the code as it will be properly #defined compile time! */
 static void glut_special_up(int code, int mouse_x_unused, int mouse_y_unused) {
@@ -610,6 +631,8 @@ static void glut_special_up(int code, int mouse_x_unused, int mouse_y_unused) {
 	if(ret) {
 		exit(ret - 1);
 	}
+
+	post_redisplay(1);
 }
 
 /* NORMAL KEY PRESSES */
@@ -623,6 +646,8 @@ static void glut_key(unsigned char code, int mouse_x_unused, int mouse_y_unused)
 	if(ret) {
 		exit(ret - 1);
 	}
+
+	post_redisplay(1);
 }
 
 static void glut_keyup(unsigned char code, int mouse_x_unused, int mouse_y_unused) {
@@ -632,6 +657,17 @@ static void glut_keyup(unsigned char code, int mouse_x_unused, int mouse_y_unuse
 	/* Handling for app exiting */
 	if(ret) {
 		exit(ret - 1);
+	}
+
+	post_redisplay(1);
+}
+
+/* IDLE FUN */
+
+static void glut_idle() {
+	post_redisplay(0);
+	if(idleFun != NULL) {
+		idleFun();
 	}
 }
 
@@ -686,7 +722,8 @@ int gles2run(
 	glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); /* Keys are much better off this way */
 
 	/* Set up glut callback functions */
-	glutIdleFunc(idle); /* This is the same as ours! */
+	idleFun = idle;
+	glutIdleFunc(glut_idle); /* This is the same as ours! */
 	glutReshapeFunc(reshape); /* This is the same as ours! */
 	drawUpdateFun = drawUpdate; /* Must save this to be visible from callbacks */
 	glutDisplayFunc(glut_draw); /* CUSTOM */
