@@ -288,6 +288,8 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 	*winRet = win;
 	*ctxRet = ctx;
+
+	return 0;
 }
 
 /**
@@ -514,7 +516,7 @@ int gles2run(
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
 	if(printInfo) printf("EGL_CLIENT_APIS = %s\n", s);
 
-	if(!make_x_window(
+	if(make_x_window(
 			x_dpy, egl_dpy,
 			(title != NULL) ? title : "gles2run", 0, 0, width, height,
 			&win, &egl_ctx, &egl_surf)) {
@@ -746,6 +748,9 @@ int gles2run(
 	/* Let glut start its own main loop */
 	init();
 	glutMainLoop();
+
+	/* Rem.: exit(retcode-1) might happen earlier! */
+	return 0;
 }
 #endif /* GLES2_HELPER_USE_GLUT */
 
