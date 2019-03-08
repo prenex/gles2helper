@@ -22,9 +22,15 @@
 
 /* Possible modes */
 /*#define USE_FULL_GL 0/1 */
+/*#define USE_GLES2 1 */ /* Overrides USE_FULL_GL to be 0 whatever it was! (alternative) */
 /*#define GLES2_HELPER_USE_EGL*/
 /*#define GLES2_HELPER_USE_GLUT*/
-/*#define GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION*/ /* Beware with this: broken hackz on many-many machines */
+/*#define GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION*/ /* Beware with this: hackz with no guarantee, but might work in more cases */
+
+/* Apply override */
+#if USE_GLES2
+#define USE_FULL_GL 0
+#endif /* USE_GLES2 */
 
 /* EGL is priority when both is defined */
 #ifdef GLES2_HELPER_USE_EGL
@@ -442,7 +448,7 @@ static int event_loop(
  *                   this both for games and for normal applications!
  *
  * @param init User-specified init function. Will be called before any drawUpdate() calls! Cannot be NULL!
- * @param drawUpdate User-specified drawUpdate function, its parameter is true when redraw_hint is hinted!
+ * @param drawUpdate User-specified drawUpdate function, its parameter is true when redraw_hint is hinted! Cannot be NULL!
  * @param reshape User-specified reshape-resize(width, height) function. Cannot be NULL!
  * @param idle User-specified idle function. Can be NULL!
  * @param keyevent User-specified key handler(code, fields) function. See KEYEVENT_* #defines for bit fields. Can be NULL!
@@ -729,11 +735,13 @@ int gles2run(
 	glutReshapeFunc(reshape); /* This is the same as ours! */
 	drawUpdateFun = drawUpdate; /* Must save this to be visible from callbacks */
 	glutDisplayFunc(glut_draw); /* CUSTOM */
-	keyeventFun = keyevent; /* Must save this to be visible from callbacks */
-	glutSpecialFunc(glut_special); /* CUSTOM */
-	glutSpecialUpFunc(glut_special_up); /* CUSTOM */
-	glutKeyboardFunc(glut_key); /* CUSTOM */
-	glutKeyboardUpFunc(glut_keyup); /* CUSTOM */
+	if(keyevent != NULL) {
+		keyeventFun = keyevent; /* Must save this to be visible from callbacks */
+		glutSpecialFunc(glut_special); /* CUSTOM */
+		glutSpecialUpFunc(glut_special_up); /* CUSTOM */
+		glutKeyboardFunc(glut_key); /* CUSTOM */
+		glutKeyboardUpFunc(glut_keyup); /* CUSTOM */
+	}
 
 	/* Let glut start its own main loop */
 	init();
