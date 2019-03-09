@@ -1,16 +1,21 @@
 /**************************************************************************
- * EGL based example code
- *
- * Draw a triangle with X/EGL and OpenGL ES 2.x
- *
- * Build:
- * g++ --std=c++11 egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11
+ * EGL based example code                                                 *
+ *                                                                        *
+ * Draw a triangle with X/EGL and OpenGL ES 2.x                           *
+ *                                                                        *
+ * Build:                                                                 *
+ * g++ --std=c++11 egl_example.cpp -o egl_example -lGLESv2 -lEGL -lX11    *
+ *                                                                        *
+ * Created by: prenex                                                     *
+ * LICENCE: The UNLICENCE                                                 *
  **************************************************************************/
 /*
 #define USE_FULL_GL 1
 #define GLES2_HELPER_USE_GLUT // Use glut (USE_FULL_GL is neede for this)
 */
 
+#define _DEFINE_GAMETIME
+#include "gametime.h"
 #include "gles2helper.h"
 /* Already provided via gles2helper.h (or gl.h or the apple one etc. etc.)
 #include <GLES2/gl2.h>
@@ -22,45 +27,11 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <chrono>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
 #define FLOAT_TO_FIXED(X)	((X) * 65535.0)
-
-class GameTime {
-private:
-	static volatile unsigned long long start_ms;
-	unsigned long long last_ms;
-	unsigned long long now_ms;
-public:
-	/** Construct a GameTime object with the difference values */
-	GameTime(unsigned long long _last_ms, unsigned long long _now_ms) {
-		last_ms = _last_ms;
-		now_ms = _now_ms;
-	}
-
-	/** Gets milliseconds relative to the last frame. */
-	const inline unsigned long long getFrameDiffMs() const {
-		return now_ms - last_ms;
-	}
-
-	/** Gets milliseconds since the game has started. ONLY WORKS AFTER setStartMs is properly called at app start! */
-	const inline unsigned long long getMs() const {
-		return now_ms - start_ms;
-	}
-
-	/** Saves the start time - needed for any later getMs() calls */
-	static inline void setStartMs(unsigned long long ms) {
-		start_ms = ms;
-	}
-
-	static inline unsigned long long getStartMs() {
-		return start_ms;
-	}
-};
-volatile unsigned long long GameTime::start_ms; // Need to be defined!
 
 static GLfloat view_rotx = 0.0, view_roty = 0.0;
 static GLint u_matrix = -1;
@@ -111,7 +82,7 @@ static void mul_matrix(GLfloat *prod, const GLfloat *a, const GLfloat *b) {
 #undef PROD
 }
 
-static void update(GameTime gametime) {
+static void update(gametime gt) {
 	// Turn the triangle according to the currently pressed keys
 	// TODO: Use gametime to limit the speed!
 	
@@ -133,7 +104,7 @@ static void update(GameTime gametime) {
 	}
 }
 
-static void draw(GameTime gametime) {
+static void draw(gametime gt) {
 	static const GLfloat verts[3][2] = {
 		{ -1, -1 },
 		{  1, -1 },
@@ -169,14 +140,7 @@ static void draw(GameTime gametime) {
 
 /** Simple single-threaded main loop */
 static int drawUpdate(int redraw_hint) {
-	unsigned long long now_ms = std::chrono::duration_cast< std::chrono::milliseconds >(
-		std::chrono::system_clock::now().time_since_epoch()).count();
-	static unsigned long long last_ms = -1;
-	if(last_ms == (unsigned long long) -1) {
-		last_ms = GameTime::getStartMs();
-	}
-
-	GameTime gt(last_ms, now_ms);
+	gametime gt = gametime::mainloop_get_current();
 
 	update(gt);
 	//if(redraw_hint) {
@@ -272,13 +236,12 @@ static void create_shaders(void) {
 
 
 static void init() {
-	/* Init shaders */
+	// Init shaders
 	glClearColor(0.4, 0.4, 0.4, 0.0);
 	create_shaders();
 
-	/* Save start time and last time so that we provide differentials */
-	GameTime::setStartMs(std::chrono::duration_cast< std::chrono::milliseconds >(
-		std::chrono::system_clock::now().time_since_epoch()).count());
+	// Initialize timing
+	gametime::init();
 }
 
 static void usage(void)
