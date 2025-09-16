@@ -30,6 +30,16 @@ public:
 		return now_ms - last_ms;
 	}
 
+	/** How many SECONDS (float) the last frame took? AKA the frame time. */
+	const inline float delta() const {
+		return (float)get_diff_ms() / 1000.0f;
+	}
+
+	/** How many frames per second if its as if the last frame? */
+	const inline float fps() const {
+		return delta() > 0 ? (1 / delta()) : 60; // Rem.: I know it might be 120 but its fine...
+	}
+
 	/** Gets milliseconds since the game has started. ONLY WORKS AFTER setStartMs is properly called at app start! */
 	const inline unsigned long long get_ms() const {
 		return now_ms - init_ms;
@@ -61,8 +71,9 @@ public:
 			previous_ms = gametime::init_ms;
 		}
 
-		// This will be return value optimized anyways - especially being inlined
-		return gametime (previous_ms, now_ms);
+		gametime t = gametime(previous_ms, now_ms);
+		previous_ms = now_ms;
+		return t;
 	}
 };
 #ifdef _DEFINE_GAMETIME
