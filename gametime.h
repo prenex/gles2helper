@@ -15,7 +15,7 @@
 /** Simple, lightweight c++14 helper class for measuring game time for the update and draw loops */
 class gametime {
 private:
-	static volatile unsigned long long init_ms;
+	static unsigned long long init_ms;
 	unsigned long long last_ms;
 	unsigned long long now_ms;
 public:
@@ -66,7 +66,7 @@ public:
 	}
 };
 #ifdef _DEFINE_GAMETIME
-volatile unsigned long long gametime::init_ms; // Need to be defined to work!
+unsigned long long gametime::init_ms; // Need to be defined to work!
 #endif /* _DEFINE_GAMETIME */
 
 #endif /* _GAMETIME_H */
