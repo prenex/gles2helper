@@ -27,6 +27,9 @@
 /*#define GLES2_HELPER_USE_GLUT*/
 /*#define GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION*/ /* Beware with this: hackz with no guarantee, but might work in more cases */
 
+/* Key handling modes */
+/*#define GLES2_HELPER_EMSCRIPTEN_QUIRKS */ /* Handles missing key handling changes and such for em++ glut */
+
 /* Apply override */
 #if USE_GLES2
 #define USE_FULL_GL 0
@@ -729,7 +732,10 @@ int gles2run(
 		/* Problem: glewInit failed, something is seriously wrong. */
 		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
 	}
-	glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); /* Keys are much better off this way */
+	#ifndef GLES2_HELPER_EMSCRIPTEN_QUIRKS
+	// glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); /* Keys are much better off this way */
+	glutIgnoreKeyRepeat(1);
+	#endif
 
 	/* Set up glut callback functions */
 	idleFun = idle;
