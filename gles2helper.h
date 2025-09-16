@@ -263,7 +263,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	{
 		EGLint val;
 		eglQueryContext(egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
-		assert(val == 2);
+		assert(val >= 2);
 	}
 #endif
 

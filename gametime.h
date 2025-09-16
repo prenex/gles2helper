@@ -11,7 +11,6 @@
  * ******************************************************************/
 
 #include <chrono>    /* timing */
-#include <algorithm> /* std::move */
 
 /** Simple, lightweight c++14 helper class for measuring game time for the update and draw loops */
 class gametime {
@@ -54,7 +53,7 @@ public:
 	}
 
 	/** When called in the main loop of an app, always return the proper gametime */
-	static inline const gametime&& mainloop_get_current() {
+	static inline const gametime mainloop_get_current() {
 		unsigned long long now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::system_clock::now().time_since_epoch()).count();
 		static unsigned long long previous_ms = -1;
@@ -63,7 +62,7 @@ public:
 		}
 
 		// This will be return value optimized anyways - especially being inlined
-		return std::move(gametime (previous_ms, now_ms));
+		return gametime (previous_ms, now_ms);
 	}
 };
 #ifdef _DEFINE_GAMETIME
