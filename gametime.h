@@ -37,6 +37,7 @@ public:
 
 	/** How many frames per second if its as if the last frame? */
 	const inline float fps() const {
+		// printf("- %d %d\n", last_ms, now_ms);
 		return delta() > 0 ? (1 / delta()) : 60; // Rem.: I know it might be 120 but its fine...
 	}
 
@@ -57,7 +58,7 @@ public:
 
 	/** Initialize game timing */
 	static inline void init() {
-		/* Save start time and last time so that we provide differentials */
+		/* Save start time */
 		gametime::set_init_ms(std::chrono::duration_cast< std::chrono::milliseconds >(
 			std::chrono::system_clock::now().time_since_epoch()).count());
 	}
@@ -76,6 +77,31 @@ public:
 		return t;
 	}
 };
+
+class fpscounter {
+	unsigned long long framecunt = 0;
+	unsigned long long last_cunt = 0;
+public:
+	/** Returns 0 when there is no change and change_analysis == 1 */
+	inline const unsigned long long get(gametime &gt, bool change_analysis = true) {
+		++framecunt;
+
+		// FPS counter
+		static unsigned long long last_fps_shown_at_ms = gt.get_ms();
+		unsigned long long now = gt.get_ms();
+		unsigned long long diff = now - last_fps_shown_at_ms;
+		if(diff >= 1000) {
+			last_fps_shown_at_ms = now;
+			// printf("FPS: %f, framecount: %zd, diff: %zd\n", gt.fps(), framecunt, diff);
+			last_cunt = framecunt * 1000 / diff;
+			framecunt = 0;
+			return last_cunt;
+		}
+
+		return (1 - change_analysis) * last_cunt;
+	}
+};
+
 #ifdef _DEFINE_GAMETIME
 unsigned long long gametime::init_ms; // Need to be defined to work!
 #endif /* _DEFINE_GAMETIME */
