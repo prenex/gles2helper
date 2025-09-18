@@ -20,8 +20,10 @@
 /* WORKING MODE SETUP */
 /* ****************** */
 
+
 /* Possible modes */
 /*#define USE_FULL_GL 0/1 */
+/*#define PRE_33_GL */ /* Use whatever they give me - possibly pre opengl 3.3 */
 /*#define USE_GLES2 1 */ /* Overrides USE_FULL_GL to be 0 whatever it was! (alternative) */
 /*#define GLES2_HELPER_USE_EGL*/
 /*#define GLES2_HELPER_USE_GLUT*/
@@ -80,9 +82,17 @@
 #ifdef __APPLE__
 #include <OpenGL/glew.h>
 #include <Glut/glut.h>
+#ifndef PRE_33_GL
+#include <GL/freeglut.h>
+#endif /* PRE_33_GL */
 #else
 #include <GL/glew.h>
 #include <GL/glut.h>
+#ifndef PRE_33_GL
+#ifdef USE_FULL_GL
+#include <GL/freeglut.h>
+#endif /* USE_FULL_GL */
+#endif /* PRE_33_GL */
 #endif /*__APPLE__ */
 #endif /* GLES2_HELPER_USE_GLUT */
 
@@ -180,6 +190,11 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	};
 #if USE_FULL_GL
 	static const EGLint ctx_attribs[] = {
+#ifndef PRE_33_GL
+		// These are needed for shaderdoc support!
+		EGL_CONTEXT_MAJOR_VERSION, 3
+		EGL_CONTEXT_MINOR_VERSION, 3
+#endif
 		EGL_NONE
 	};
 #else
@@ -723,6 +738,15 @@ int gles2run(
 	char* hackz = ARGV_HACKZ;
 	int hackzc = 1;
 	glutInit(&hackzc, &hackz); /* Hope for this to work... argc = 0; argv = NULL */
+
+#ifndef PRE_33_GL
+#ifdef USE_FULL_GL
+	glutInitContextVersion(3, 3);
+	glutInitContextProfile(GLUT_CORE_PROFILE);  // or GLUT_COMPATIBILITY_PROFILE
+	glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);
+#endif /* USE_FULL_GL */
+#endif /* PRE_33_GL */
+
 	glutInitWindowSize(width, height);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutCreateWindow(title);
