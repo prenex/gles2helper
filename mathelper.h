@@ -151,6 +151,51 @@ static void invert(GLfloat *m) {
 }
 
 /**
+ * Calculate an orthographic projection transformation.
+ *
+ * @param m the matrix to save the transformation in
+ * @param left The leftmost coordinate
+ * @param right The rightmost coordinate
+ * @param bottom The bottom-most coordinate
+ * @param top The topmost coordinate
+ * @param near The near clipping in Z (set to -1.0f when unsure)
+ * @param far The far clipping in Z (set to 1.0f when unsure)
+ */
+void ortho(
+		GLfloat *m,
+		float left,
+		float right,
+		float bottom,
+		float top,
+		float near,
+		float far) {
+
+	float rl = right - left;
+	float tb = top - bottom;
+	float fn = far - near;
+
+	m[0]  =  2.0f / rl;
+	m[1]  =  0.0f;
+	m[2]  =  0.0f;
+	m[3]  =  0.0f;
+
+	m[4]  =  0.0f;
+	m[5]  =  2.0f / tb;
+	m[6]  =  0.0f;
+	m[7]  =  0.0f;
+
+	m[8]  =  0.0f;
+	m[9]  =  0.0f;
+	m[10] = -2.0f / fn;
+	m[11] =  0.0f;
+
+	m[12] = -(right + left) / rl;
+	m[13] = -(top + bottom) / tb;
+	m[14] = -(far + near) / fn;
+	m[15] =  1.0f;
+}
+
+/**
  * Calculate a perspective projection transformation.
  *
  * @param m the matrix to save the transformation in
