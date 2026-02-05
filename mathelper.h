@@ -8,9 +8,9 @@
  * LICENCE: The UNLICENCE                                            *
  * ******************************************************************/
 
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 /* Include OpenGL and GLU itself */
 #if USE_FULL_GL
 #ifdef __APPLE__
@@ -24,11 +24,61 @@
 
 #ifndef HAVE_BUILTIN_SINCOS
 #define sincos _sincos
-static void sincos (double a, double *s, double *c) {
+static inline void sincos (double a, double *s, double *c) {
   *s = sin (a);
   *c = cos (a);
 }
 #endif
+
+/* Use this for close-to-zero checks and so */
+#ifndef FLOAT_DELTA
+#define FLOAT_DELTA 0.001
+#endif
+
+/** Squared len of a vector */
+static inline float vec_sqr_len(float x, float y, float z) {
+	return (x * x + y * y + z * z);
+}
+
+static inline float vec_len(float x, float y, float z) {
+	return sqrt(vec_sqr_len(x, y, z));
+}
+
+/** Squared distance of two points */
+static inline float sqdistance(
+		float x, float y, float z,
+		float ox, float oy, float oz) {
+	float dx = ox - x;
+	float dy = oy - y;
+	float dz = oz - z;
+
+	return vec_sqr_len(dx, dy, dz);
+}
+
+/** Distance of two points */
+static inline float distance(
+		float x, float y, float z,
+		float ox, float oy, float oz) {
+
+	return sqrt(sqdistance(x, y, z, ox, oy, oz));
+}
+
+/** Normalizes a non-zero vector */
+static inline void normalize_fast(float *x, float *y, float *z) {
+	float l = vec_len(*x, *y, *z);
+	*x = *x / l;
+	*y = *y / l;
+	*z = *z / l;
+}
+
+/** Normalizes a vector. Very close to zero vector becomes normalized as 0,0,0 for your sanity */
+static inline void normalize(float *x, float *y, float *z) {
+	float l = vec_len(*x, *y, *z);
+	if(l < FLOAT_DELTA) return;
+	*x = *x / l;
+	*y = *y / l;
+	*z = *z / l;
+}
 
 /**
  * Multiplies two 4x4 matrices.
@@ -38,7 +88,7 @@ static void sincos (double a, double *s, double *c) {
  * @param m the first matrix to multiply
  * @param n the second matrix to multiply
  */
-static void multiply(GLfloat *m, const GLfloat *n) {
+static inline void multiply(GLfloat *m, const GLfloat *n) {
    GLfloat tmp[16];
    const GLfloat *row, *column;
    div_t d;
@@ -64,7 +114,7 @@ static void multiply(GLfloat *m, const GLfloat *n) {
  * @param y the y component of the direction to rotate to
  * @param z the z component of the direction to rotate to
  */
-static void rotate(GLfloat *m, GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
+static inline void rotate(GLfloat *m, GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
    double sd, cd;
    sincos(angle, &sd, &cd);
    float s = (float)sd;
@@ -88,7 +138,7 @@ static void rotate(GLfloat *m, GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
  * @param y the y component of the direction to translate to
  * @param z the z component of the direction to translate to
  */
-static void translate(GLfloat *m, GLfloat x, GLfloat y, GLfloat z) {
+static inline void translate(GLfloat *m, GLfloat x, GLfloat y, GLfloat z) {
    GLfloat t[16] = { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  x, y, z, 1 };
 
    multiply(m, t);
@@ -99,7 +149,7 @@ static void translate(GLfloat *m, GLfloat x, GLfloat y, GLfloat z) {
  *
  * @param m the matrix make an identity matrix
  */
-static void identity(GLfloat *m) {
+static inline void identity(GLfloat *m) {
    GLfloat t[16] = {
       1.0, 0.0, 0.0, 0.0,
       0.0, 1.0, 0.0, 0.0,
@@ -115,7 +165,7 @@ static void identity(GLfloat *m) {
  *
  * @param m the matrix to transpose
  */
-static void transpose(GLfloat *m) {
+static inline void transpose(GLfloat *m) {
    GLfloat t[16] = {
       m[0], m[4], m[8],  m[12],
       m[1], m[5], m[9],  m[13],
@@ -132,7 +182,7 @@ static void transpose(GLfloat *m) {
  * Read http://www.gamedev.net/community/forums/topic.asp?topic_id=425118
  * for an explanation.
  */
-static void invert(GLfloat *m) {
+static inline void invert(GLfloat *m) {
    GLfloat t[16];
    identity(t);
 
