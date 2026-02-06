@@ -16,6 +16,13 @@
  * - etc.
  */
 
+#define EVENT_MASK (KeyPressMask | KeyReleaseMask | \
+                    ButtonPressMask | ButtonReleaseMask | \
+                    PointerMotionMask | \
+                    ExposureMask | \
+                    StructureNotifyMask | \
+                    FocusChangeMask)
+
 /* ****************** */
 /* WORKING MODE SETUP */
 /* ****************** */
@@ -75,6 +82,7 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#include <X11/Xatom.h>  // Add this for XA_CARDINAL and other atoms
 #include <EGL/egl.h>
 #endif /* GLES2_HELPER_USE_EGL */
 /* GLUT */
@@ -244,7 +252,7 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 	attr.background_pixel = 0;
 	attr.border_pixel = 0;
 	attr.colormap = XCreateColormap( x_dpy, root, visInfo->visual, AllocNone);
-	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
+	attr.event_mask = EVENT_MASK;
 	mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
 	win = XCreateWindow( x_dpy, root, 0, 0, width, height,
@@ -262,6 +270,12 @@ static int make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 		XSetNormalHints(x_dpy, win, &sizehints);
 		XSetStandardProperties(x_dpy, win, name, name,
 								None, (char **)NULL, 0, &sizehints);
+		/* // Take full focus - this might starve other windows on focus lost!
+		XWMHints wm_hints;
+		wm_hints.input = True;  // This window wants input focus
+		wm_hints.flags = InputHint;
+		XSetWMHints(x_dpy, win, &wm_hints);
+		*/
 	}
 
 #if USE_FULL_GL /* XXX fix this when eglBindAPI() works */
@@ -336,20 +350,36 @@ static int event_loop(
 	while (1) {
 		/** To avoid blocking, only see if there is pending events */
 		int redraw_hint = 0;
-		if (XPending(dpy) > 0) {
+		// This is "while loop" instead of an "if"  because if drawUpdate() happens all time its eglswapbuffers do Expose event
+		// Then imagine out events being: (Expose, KeyRelease, KeyPress)... now we process Expose then draw and re-add expose
+		// Which would starve out keyboard and all other handling!
+		while (XPending(dpy) > 0) {
 			XEvent event;
-
 			XNextEvent(dpy, &event);
 
 			switch (event.type) {
 				case Expose:
 				 redraw_hint = 1;
+
 				 break;
 				case ConfigureNotify:
 				 /* Call user-defined reshape */
 				 reshape(event.xconfigure.width, event.xconfigure.height);
 				 break;
+				case FocusIn:
+				 printf("Gained focus\n");
+				 // Optionally grab keyboard
+				 // XGrabKeyboard(dpy, win, False, GrabModeAsync, GrabModeAsync, CurrentTime);
+				 break;
+
+				case FocusOut:
+				 printf("Lost focus\n");
+				 // XUngrabKeyboard(dpy, CurrentTime);
+				 // Force refocus?
+				 // XSetInputFocus(x_dpy, win, RevertToParent, CurrentTime);
+				 break;
 				case KeyRelease:
+puts("....");
 				/* We just fall through to KeyPress except if we do HACKZ... */
 #ifdef GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION
 				/*
@@ -550,10 +580,7 @@ int gles2run(
 	 *      https://tronche.com/gui/x/xlib-tutorial/2nd-program-anatomy.html
 	 *      https://tronche.com/gui/x/xlib/events/keyboard-pointer/keyboard-pointer.html
 	 */
-	XSelectInput(x_dpy, win,
-			KeyPressMask | KeyReleaseMask | /* Key */
-			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | /* Mouse */
-			ExposureMask | StructureNotifyMask); /* Redraw and resize */
+	XSelectInput(x_dpy, win, EVENT_MASK);
 
 	XMapWindow(x_dpy, win);
 	if (!eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx)) {
