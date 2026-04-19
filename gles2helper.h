@@ -379,7 +379,6 @@ static int event_loop(
 				 // XSetInputFocus(x_dpy, win, RevertToParent, CurrentTime);
 				 break;
 				case KeyRelease:
-puts("....");
 				/* We just fall through to KeyPress except if we do HACKZ... */
 #ifdef GLES2_H_USE_AUTOREPEAT_HACKZ_DETECTION
 				/*
