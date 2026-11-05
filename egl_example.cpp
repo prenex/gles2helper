@@ -145,17 +145,24 @@ static int drawUpdate(int redraw_hint) {
 	gametime gt = gametime::mainloop_get_current();
 
 	static fpscounter fps;
-	/** Framecap at 120 fps if possible to not kill GPUs */
-	unsigned long long fraps = fps.ensure(gt, 120);
-	//unsigned long long fraps = fps.ensure(gt, 24);
 
-	if(fraps) {
-		printf("------------------FPS: %zd\n", fraps);
-	}
-	// printf("frametime: %llu\n", gt.get_diff_ms());
+	// if(redraw_hint) { // wrong! too few occastion on some setups! but you can move this to below redraw_hint||animating!
+		/** Framecap at 120 fps if possible to not kill GPUs */
+		unsigned long long fraps = fps.ensure(gt, 120);
+		//unsigned long long fraps = fps.ensure(gt, 24);
+
+		if(fraps) {
+			printf("------------------FPS: %zd\n", fraps);
+		}
+		// printf("frametime: %llu\n", gt.get_diff_ms());
+	// }
 
 	update(gt);
-	if(redraw_hint) {
+
+	// Not just redraw when the system tells you
+	// But while we are still animating!
+	bool animating = left || right || up || down;
+	if(redraw_hint || animating) {
 
 
 		draw(gt);
