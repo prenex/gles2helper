@@ -465,7 +465,7 @@ static int event_loop(
 								return ret-1; /* Exit program */
 							}
 							break;
-					}	
+					}
 
 					/* Expect to redraw_hint when there is some keyboard even! */
 					redraw_hint = 1;
@@ -653,12 +653,13 @@ static void glut_draw() {
 	} else {
 		isRedis = 0;
 	}
-	glutSwapBuffers();
+	if(redraw) glutSwapBuffers();
 }
 
 /** Calls the user code's update and draw calls with given hint and calls glutPostRedisplay. */
 static void post_redisplay(int hint) {
 	int redraw = drawUpdateFun(hint);
+	isRedis = 1;
 	if(redraw) glutPostRedisplay();
 }
 
@@ -781,7 +782,12 @@ int gles2run(
 	{
 		/* Problem: glewInit failed, something is seriously wrong. */
 		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+		exit(1);
 	}
+	printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+	printf("GL_VERSION  = %s\n", (const char*)glGetString(GL_VERSION));
+	printf("GL_VENDOR   = %s\n", (const char*)glGetString(GL_VENDOR));
+	fflush(stdout);
 	#ifndef GLES2_HELPER_EMSCRIPTEN_QUIRKS
 	// glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF); /* Keys are much better off this way */
 	glutIgnoreKeyRepeat(1);

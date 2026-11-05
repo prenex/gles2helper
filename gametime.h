@@ -132,10 +132,10 @@ public:
 	 *
 	 * @param gt The gametime
 	 * @param target_fps The target frames per second. 0 means no frame cap!
-	 * @param close_enough_percent OPTIONAL: If we are below target fps by this amount, we stop throttling at all!
+	 * @param close_enough_percent OPTIONAL: If we are around target fps by this amount, we stop throttling at all!
 	 * @returns The current fps - as if asked with fps.get(gt, true). So 0 when unchanged and a value ~each second.
 	 */
-	inline const long long ensure(gametime &gt, long long target_fps, long long close_enough_percent = 20) {
+	inline const long long ensure(gametime &gt, long long target_fps, long long close_enough_percent = 5) {
 
 		// The true here and (*) ensures "around" 1s have passed
 		long long fps = this->get(gt, true);
@@ -151,10 +151,12 @@ public:
 		}
 
 		// Calculate an c% headroom to avoid too often re-measuring
-		long long diminished_target_fps = target_fps - (target_fps / (100 / close_enough_percent));
+		//long long diminished_target_fps = target_fps - (target_fps / (100 / close_enough_percent));
+		long long augminished_target_fps = target_fps + (target_fps / (100 / close_enough_percent));
 
-		// If we are BELOW the target fps, just do nothing...
-		if(fps <= diminished_target_fps) { current_sleeptime_us = 0; return fps; }
+		// If we are WELL BELOW the target fps, just do nothing...
+		//if(fps <= diminished_target_fps) { current_sleeptime_us = 0; return fps; }
+		if(fps <= augminished_target_fps) { return fps; }
 
 		// Here is the idea for frame capping...
 		// 1000 * 1000 us -> fps
@@ -194,15 +196,16 @@ public:
 		// otherwise we will keep oscillating between once
 		// having 25fps, then next second 100fps, then 23... etc...
 		long long sleeptime_us = (one_sec_us - time_target_frame_count_needs_us) / target_fps + current_sleeptime_us;
-		printf("time_target_frame_count_needs_us: %lld, sleeptime_us: %lld, fps: %lld",
-				time_target_frame_count_needs_us,
-				sleeptime_us,
-				fps);
+		//printf("time_target_frame_count_needs_us: %lld, sleeptime_us: %lld, fps: %lld",
+		//		time_target_frame_count_needs_us,
+		//		sleeptime_us,
+		//		fps);
 		if(sleeptime_us > 0) my_usleep(sleeptime_us);
 
 		// Need to save this so its applied on every call - not just when a second have happened!
 		// Otherwise we would only sleep whenever needed...
-		current_sleeptime_us = sleeptime_us;
+		// Rem.: Negative clamped out because otherwise it can collect up!
+		current_sleeptime_us = (sleeptime_us > 0) ? sleeptime_us : 0;
 
 		return fps;
 	}

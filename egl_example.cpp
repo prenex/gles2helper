@@ -132,6 +132,8 @@ static void draw(gametime gt) {
 		glEnableVertexAttribArray(attr_color);
 
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+		GLenum e = glGetError();
+		if (e) { printf("glDrawArrays GL error 0x%04x\n", e); fflush(stdout); }
 
 		glDisableVertexAttribArray(attr_pos);
 		glDisableVertexAttribArray(attr_color);
@@ -142,11 +144,23 @@ static void draw(gametime gt) {
 static int drawUpdate(int redraw_hint) {
 	gametime gt = gametime::mainloop_get_current();
 
+	static fpscounter fps;
+	/** Framecap at 120 fps if possible to not kill GPUs */
+	unsigned long long fraps = fps.ensure(gt, 120);
+	//unsigned long long fraps = fps.ensure(gt, 24);
+
+	if(fraps) {
+		printf("------------------FPS: %zd\n", fraps);
+	}
+	// printf("frametime: %llu\n", gt.get_diff_ms());
+
 	update(gt);
-	//if(redraw_hint) {
+	if(redraw_hint) {
+
+
 		draw(gt);
 		return true;
-	//} else return false;
+	} else return false;
 }
 
 /* new window size or exposure */
