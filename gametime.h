@@ -104,7 +104,7 @@ class fpscounter {
 	unsigned long long framecunt = 0;
 	unsigned long long last_cunt = 0;
 	/** The ensure(..) call uses this */
-	unsigned long long current_sleeptime_us = 0;
+	long long current_sleeptime_us = 0;
 public:
 	/** Returns 0 when there is no change and change_analysis == 1 */
 	inline const unsigned long long get(gametime &gt, bool change_analysis = true) {
@@ -194,6 +194,10 @@ public:
 		// otherwise we will keep oscillating between once
 		// having 25fps, then next second 100fps, then 23... etc...
 		long long sleeptime_us = (one_sec_us - time_target_frame_count_needs_us) / target_fps + current_sleeptime_us;
+		printf("time_target_frame_count_needs_us: %lld, sleeptime_us: %lld, fps: %lld",
+				time_target_frame_count_needs_us,
+				sleeptime_us,
+				fps);
 		if(sleeptime_us > 0) my_usleep(sleeptime_us);
 
 		// Need to save this so its applied on every call - not just when a second have happened!
